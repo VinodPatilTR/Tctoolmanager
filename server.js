@@ -201,6 +201,18 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
+    if (req.method === 'GET' && pathname === '/api/health') {
+      sendJson(res, 200, {
+        ok: true,
+        storage: USE_GITHUB_STORAGE ? 'github' : 'local-file',
+        githubOwner: GITHUB_OWNER,
+        githubRepo: GITHUB_REPO,
+        githubBranch: GITHUB_BRANCH,
+        githubFilePath: GITHUB_FILE_PATH
+      });
+      return;
+    }
+
     if (req.method === 'GET' && pathname === '/api/tools') {
       const { store } = await readStoreWithMeta();
       sendJson(res, 200, store.tools);

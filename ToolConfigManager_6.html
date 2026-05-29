@@ -1228,7 +1228,6 @@ tbody tr:hover td { background: var(--bg3); }
 <script src="./app-config.js"></script>
 <script>
 const API_BASE = window.TCTOOL_API_BASE || '/api/tools';
-const STATIC_JSON_PATH = './data/ToolConfig.json';
 const REFRESH_MS = 30000;
 
 let tools = [];
@@ -1318,7 +1317,7 @@ function showApiBanner(show, detail) {
   if (!banner || !sub) return;
   banner.style.display = show ? 'flex' : 'none';
   if (show && detail) {
-    sub.textContent = `Could not connect to backend API: ${detail}. Start server.js and reload.`;
+    sub.textContent = `Could not connect to backend API: ${detail}. Configure app-config.js with your deployed API URL and reload.`;
   }
 }
 
@@ -1362,21 +1361,8 @@ async function loadFromApi(silent) {
     if (!silent) showToast('📂', `Loaded ${tools.length} tools`);
   } catch (error) {
     console.error(error);
-    try {
-      const staticRes = await fetch(STATIC_JSON_PATH, { cache: 'no-store' });
-      if (!staticRes.ok) throw new Error(`HTTP ${staticRes.status}`);
-      const staticData = await staticRes.json();
-      tools = ((staticData && staticData.tools) || []).map(normalizeTool);
-      nextId = Math.max(0, ...tools.map(t => Number(t.id) || 0)) + 1;
-      lastSyncTime = new Date();
-      isStaticMode = true;
-      showApiBanner(false);
-      if (!silent) showToast('ℹ️', `Loaded ${tools.length} tools from static JSON`);
-    } catch (staticError) {
-      console.error(staticError);
-      showApiBanner(true, error.message);
-      if (!silent) showToast('❌', `Could not load data: ${error.message}`);
-    }
+    showApiBanner(true, error.message);
+    if (!silent) showToast('❌', `Could not load data: ${error.message}`);
   } finally {
     if (reloadBtn) reloadBtn.classList.remove('spinning');
     setLoading(false);
