@@ -1369,8 +1369,8 @@ async function loadFromApi(silent) {
       nextId = Math.max(0, ...tools.map(t => Number(t.id) || 0)) + 1;
       lastSyncTime = new Date();
       isStaticMode = true;
-      showApiBanner(true, 'Running in static mode (read-only)');
-      if (!silent) showToast('ℹ️', `Loaded ${tools.length} tools from static JSON (read-only mode)`);
+      showApiBanner(false);
+      if (!silent) showToast('ℹ️', `Loaded ${tools.length} tools from static JSON`);
     } catch (staticError) {
       console.error(staticError);
       showApiBanner(true, error.message);
