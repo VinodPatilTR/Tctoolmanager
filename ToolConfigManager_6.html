@@ -1227,6 +1227,7 @@ tbody tr:hover td { background: var(--bg3); }
 
 <script>
 const API_BASE = '/api/tools';
+const STATIC_JSON_PATH = './data/ToolConfig.json';
 const REFRESH_MS = 30000;
 
 let tools = [];
@@ -1237,6 +1238,7 @@ let lastSyncTime = null;
 let autoRefreshTimer = null;
 let countdownTimer = null;
 let nextRefreshAt = 0;
+let isStaticMode = false;
 
 const CARD_COLORS = [
   { bg:'rgba(79,124,255,0.12)',  color:'#6e95ff' },
@@ -1354,12 +1356,26 @@ async function loadFromApi(silent) {
     tools = (rows || []).map(normalizeTool);
     nextId = Math.max(0, ...tools.map(t => Number(t.id) || 0)) + 1;
     lastSyncTime = new Date();
+    isStaticMode = false;
     showApiBanner(false);
     if (!silent) showToast('📂', `Loaded ${tools.length} tools`);
   } catch (error) {
     console.error(error);
-    showApiBanner(true, error.message);
-    if (!silent) showToast('❌', `Could not load data: ${error.message}`);
+    try {
+      const staticRes = await fetch(STATIC_JSON_PATH, { cache: 'no-store' });
+      if (!staticRes.ok) throw new Error(`HTTP ${staticRes.status}`);
+      const staticData = await staticRes.json();
+      tools = ((staticData && staticData.tools) || []).map(normalizeTool);
+      nextId = Math.max(0, ...tools.map(t => Number(t.id) || 0)) + 1;
+      lastSyncTime = new Date();
+      isStaticMode = true;
+      showApiBanner(true, 'Running in static mode (read-only)');
+      if (!silent) showToast('ℹ️', `Loaded ${tools.length} tools from static JSON (read-only mode)`);
+    } catch (staticError) {
+      console.error(staticError);
+      showApiBanner(true, error.message);
+      if (!silent) showToast('❌', `Could not load data: ${error.message}`);
+    }
   } finally {
     if (reloadBtn) reloadBtn.classList.remove('spinning');
     setLoading(false);
@@ -1556,6 +1572,10 @@ function handleBackdropClick(e) { if (e.target === document.getElementById('moda
 function clearErrors() { ['name','url','by'].forEach(k => document.getElementById('err-'+k).textContent = ''); }
 
 async function saveTool() {
+  if (isStaticMode) {
+    showToast('ℹ️', 'Read-only mode on static hosting. Run local API/server to save changes.');
+    return;
+  }
   clearErrors();
   const name   = document.getElementById('f-name').value.trim();
   const desc   = document.getElementById('f-desc').value.trim();
@@ -1609,6 +1629,10 @@ async function saveTool() {
 }
 
 async function toggleActive(id) {
+  if (isStaticMode) {
+    showToast('ℹ️', 'Read-only mode on static hosting. Run local API/server to update status.');
+    return;
+  }
   const t = tools.find(x => x.id === id);
   if (!t) return;
   const next = t.ToolActive ? 0 : 1;
@@ -1642,6 +1666,10 @@ function closeConfirm() {
 }
 
 async function confirmDelete() {
+  if (isStaticMode) {
+    showToast('ℹ️', 'Read-only mode on static hosting. Run local API/server to delete tools.');
+    return;
+  }
   if (!deleteId) return;
   const id = deleteId;
   const t = tools.find(x => x.id === id);
@@ -1671,9 +1699,11 @@ function trackClick(id) {
   if (document.getElementById('pane-table').classList.contains('active')) renderTable();
   if (document.getElementById('pane-usage').classList.contains('active')) renderUsage();
 
-  apiRequest(`${API_BASE}/${id}/click`, { method: 'PATCH', keepalive: true }).catch(err => {
-    console.error(err);
-  });
+  if (!isStaticMode) {
+    apiRequest(`${API_BASE}/${id}/click`, { method: 'PATCH', keepalive: true }).catch(err => {
+      console.error(err);
+    });
+  }
 }
 
 function renderUsage() {
@@ -1726,6 +1756,10 @@ function renderUsage() {
 }
 
 async function resetUsage(id) {
+  if (isStaticMode) {
+    showToast('ℹ️', 'Read-only mode on static hosting. Run local API/server to reset counts.');
+    return;
+  }
   const t = tools.find(x => x.id === id);
   if (!t) return;
   if (!confirm(`Reset Totaluserclickcount to 0 for "${t.toolname}"?`)) return;
