@@ -1,0 +1,10 @@
+{
+  "name": "tctool-config-manager",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Small backend API for ToolConfig JSON storage",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

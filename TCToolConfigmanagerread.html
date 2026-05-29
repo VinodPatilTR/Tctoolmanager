@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tool Config Manager — TCtool</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg: #eceef2;
+  --bg2: #ffffff;
+  --bg3: #f7f8fa;
+  --bg4: #e6e9ef;
+  --border: #d8dde6;
+  --border2: #c5ccd8;
+  --text: #1d2736;
+  --text2: #4e5d74;
+  --text3: #7a879a;
+  --accent: #0f67ac;
+  --accent2: #0b5a9a;
+  --accent-dim: rgba(15,103,172,0.08);
+  --accent-glow: rgba(15,103,172,0.2);
+  --green: #2e8b3c;
+  --green-dim: rgba(46,139,60,0.12);
+  --red: #c44747;
+  --red-dim: rgba(196,71,71,0.11);
+  --amber: #af7d12;
+  --amber-dim: rgba(175,125,18,0.1);
+  --radius: 10px;
+  --radius-lg: 16px;
+  --mono: 'Consolas', 'Courier New', monospace;
+  --display: 'Segoe UI', 'Arial', sans-serif;
+  --body: 'Segoe UI', 'Arial', sans-serif;
+  --sidebar-w: 220px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--body);
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── SIDEBAR ─────────────────────────────────── */
+#sidebar {
+  width: var(--sidebar-w);
+  min-height: 100vh;
+  background: #f5f6f8;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 50;
+}
+.brand {
+  padding: 28px 22px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.brand-icon {
+  width: 38px; height: 38px;
+  background: #e7f0f8;
+  border: 1px solid var(--accent-glow);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+.brand h1 {
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.4px;
+}
+.brand p {
+  font-size: 12px;
+  color: var(--text3);
+  font-family: var(--mono);
+  margin-top: 3px;
+}
+nav { padding: 16px 12px; flex: 1; }
+.nav-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text3);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 0 10px;
+  margin-bottom: 8px;
+  margin-top: 16px;
+}
+.nav-label:first-child { margin-top: 0; }
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text2);
+  font-family: var(--body);
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  text-align: left;
+  margin-bottom: 2px;
+}
+.nav-btn .icon { font-size: 16px; flex-shrink: 0; }
+.nav-btn:hover { background: var(--bg3); color: var(--text); }
+.nav-btn.active { background: var(--accent-dim); color: var(--accent2); }
+.nav-btn.active .icon { color: var(--accent); }
+.sidebar-footer {
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text3);
+  font-family: var(--mono);
+}
+.sidebar-footer span { color: var(--accent); }
+
+/* ── MAIN CONTENT ────────────────────────────── */
+#main {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.topbar {
+  height: 66px;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg);
+  position: sticky; top: 0;
+  z-index: 40;
+}
+.topbar-title {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+.topbar-meta {
+  font-size: 12px;
+  color: var(--text3);
+  font-family: var(--mono);
+  margin-top: 1px;
+}
+.btn-add {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--accent-glow);
+  background: var(--accent-dim);
+  color: var(--accent2);
+  font-family: var(--body);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.btn-add:hover { background: rgba(79,124,255,0.2); border-color: var(--accent); }
+.content { padding: 28px; flex: 1; }
+
+/* ── PANES ───────────────────────────────────── */
+.pane { display: none; }
+.pane.active { display: block; }
+
+/* ── STATS ───────────────────────────────────── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(28,36,53,0.08);
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: -30px; right: -30px;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  opacity: .07;
+}
+.stat-card.sc-total::before  { background: var(--accent); }
+.stat-card.sc-active::before { background: var(--green); }
+.stat-card.sc-inactive::before { background: var(--red); }
+.stat-label {
+  font-size: 11px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  font-family: var(--mono);
+  margin-bottom: 8px;
+}
+.stat-value {
+  font-family: var(--display);
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+}
+.stat-card.sc-total   .stat-value { color: var(--accent2); }
+.stat-card.sc-active  .stat-value { color: var(--green); }
+.stat-card.sc-inactive .stat-value { color: var(--red); }
+.stat-sub { font-size: 11px; color: var(--text3); margin-top: 6px; }
+
+/* ── TOOLBAR ─────────────────────────────────── */
+.toolbar {
+  display: flex; gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+.search-wrap {
+  position: relative;
+  flex: 1; min-width: 200px;
+}
+.search-wrap .ico {
+  position: absolute;
+  left: 11px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--text3);
+  font-size: 14px;
+  pointer-events: none;
+}
+.search-input {
+  width: 100%;
+  padding: 9px 12px 9px 34px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 13px;
+  transition: border-color .15s;
+}
+.search-input:focus { outline: none; border-color: var(--accent); }
+.search-input::placeholder { color: var(--text3); }
+.filter-select {
+  padding: 9px 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text2);
+  font-family: var(--body);
+  font-size: 13px;
+  cursor: pointer;
+  appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23555b73' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+.filter-select:focus { outline: none; border-color: var(--accent); }
+
+/* ── CARDS ───────────────────────────────────── */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.tool-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  cursor: default;
+  transition: border-color .15s, transform .15s, box-shadow .15s;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.tool-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(15,103,172,0.03) 0%, transparent 60%);
+  pointer-events: none;
+}
+.tool-card:hover {
+  border-color: var(--border2);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(22,38,66,0.12);
+}
+.tool-card.inactive { opacity: .5; }
+
+/* card header row */
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.card-av {
+  width: 42px; height: 42px;
+  border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.pill {
+  font-size: 10px;
+  font-weight: 500;
+  font-family: var(--mono);
+  padding: 3px 9px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  white-space: nowrap;
+}
+.pill-on  { background: var(--green-dim); color: var(--green); border: 1px solid rgba(62,207,142,0.2); }
+.pill-off { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(242,84,106,0.2); }
+
+/* card body */
+.card-name {
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+
+/* ── DESCRIPTION BLOCK on card ── */
+.card-desc {
+  font-size: 12.5px;
+  color: var(--text2);
+  line-height: 1.55;
+  margin-bottom: 12px;
+  flex: 1;
+  /* clamp to 3 lines */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-desc.empty-desc {
+  color: var(--text3);
+  font-style: italic;
+}
+
+/* url + launch button row */
+.card-url-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fbfcfe;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  margin-bottom: 10px;
+}
+.card-url {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card-url:hover { color: var(--accent2); text-decoration: underline; }
+.launch-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--accent-glow);
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--body);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background .13s;
+  flex-shrink: 0;
+}
+.launch-btn:hover { background: #0a568f; }
+
+.card-remark {
+  font-size: 11px;
+  color: var(--text3);
+  margin-bottom: 10px;
+  padding: 7px 10px;
+  background: var(--amber-dim);
+  border-left: 2px solid var(--amber);
+  border-radius: 0 6px 6px 0;
+  line-height: 1.5;
+}
+.card-meta {
+  font-size: 10px;
+  color: var(--green);
+  text-shadow: none;
+  font-family: var(--mono);
+  margin-bottom: 12px;
+}
+.card-actions {
+  display: flex; gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+.btn-sm {
+  flex: 1;
+  padding: 6px 0;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text2);
+  font-family: var(--body);
+  font-size: 11.5px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  transition: all .13s;
+}
+.btn-sm:hover { background: var(--bg3); color: var(--text); border-color: var(--border2); }
+.btn-sm.edit:hover   { background: var(--accent-dim); color: var(--accent2); border-color: var(--accent-glow); }
+.btn-sm.danger:hover { background: var(--red-dim);    color: var(--red);     border-color: rgba(242,84,106,0.3); }
+
+/* ── ADMIN TABLE ─────────────────────────────── */
+.table-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(28,36,53,0.08);
+}
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  background: #f3f5f8;
+  padding: 11px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text3);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  font-family: var(--mono);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text2);
+  vertical-align: middle;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--bg3); }
+.td-id   { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+.td-name { font-weight: 500; color: var(--text); }
+.td-desc { font-size: 12px; color: var(--text2); max-width: 200px; }
+.td-url  { font-family: var(--mono); font-size: 11px; color: var(--accent); text-decoration: none; }
+.td-url:hover { text-decoration: underline; }
+.td-date { font-family: var(--mono); font-size: 11px; }
+.tbl-act { display: flex; gap: 4px; }
+.icon-btn {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text3);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  transition: all .13s;
+}
+.icon-btn:hover       { background: var(--bg3);       color: var(--text);   border-color: var(--border2); }
+.icon-btn.edit-ib:hover { background: var(--accent-dim); color: var(--accent2); border-color: var(--accent-glow); }
+.icon-btn.del-ib:hover  { background: var(--red-dim);    color: var(--red);     border-color: rgba(242,84,106,0.3); }
+.rec-count {
+  font-size: 12px;
+  color: var(--text3);
+  font-family: var(--mono);
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── SCHEMA TAB ──────────────────────────────── */
+.schema-section { margin-bottom: 24px; }
+.schema-section h3 {
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text2);
+  margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.schema-section h3::after { content:''; flex:1; height:1px; background:var(--border); }
+.code-block {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.8;
+  overflow-x: auto;
+  position: relative;
+}
+.code-block .kw  { color: var(--accent2); }
+.code-block .type{ color: #e8a97a; }
+.code-block .cm  { color: var(--text3); }
+.code-block .str { color: var(--green); }
+.code-block .num { color: var(--amber); }
+.code-block .hi  { color: #f5c842; font-weight: 500; } /* highlight new col */
+.copy-btn {
+  position: absolute;
+  top: 10px; right: 10px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text3);
+  font-family: var(--mono);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all .13s;
+}
+.copy-btn:hover { background: var(--bg4); color: var(--text); border-color: var(--border2); }
+.db-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.db-info-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.db-info-card .label { font-size: 10px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
+.db-info-card .value { font-size: 13px; color: var(--text); font-family: var(--mono); }
+
+/* ── NEW COL BADGE ───────────────────────────── */
+.new-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-family: var(--mono);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--amber-dim);
+  color: var(--amber);
+  border: 1px solid rgba(245,166,35,0.25);
+  margin-left: 6px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+/* ── MODAL ───────────────────────────────────── */
+.modal-backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.65);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  width: 480px;
+  max-width: 95vw;
+  max-height: 92vh;
+  overflow-y: auto;
+  animation: modalIn .18s ease;
+}
+@keyframes modalIn {
+  from { opacity:0; transform:translateY(10px) scale(.98); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+.modal-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-title {
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.modal-close {
+  width: 30px; height: 30px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text3);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  transition: all .13s;
+}
+.modal-close:hover { background: var(--red-dim); color: var(--red); border-color: rgba(242,84,106,0.3); }
+.modal-body { padding: 20px 24px; }
+.field { margin-bottom: 16px; }
+.field label {
+  display: block;
+  font-size: 11px;
+  color: var(--text3);
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  margin-bottom: 6px;
+}
+.field label .lbl-new { color: var(--amber); margin-left: 5px; font-size: 9px; }
+.field input, .field textarea, .field select {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 13px;
+  transition: border-color .13s;
+}
+.field input:focus, .field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.field textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+.field input::placeholder, .field textarea::placeholder { color: var(--text3); }
+.char-count { font-size: 10px; color: var(--text3); font-family: var(--mono); text-align: right; margin-top: 3px; }
+.char-count.warn { color: var(--amber); }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; }
+.toggle-row .tgl-label { font-size: 13px; color: var(--text2); }
+.toggle { position: relative; width: 42px; height: 24px; }
+.toggle input { opacity:0; width:0; height:0; }
+.tgl-sw {
+  position: absolute; inset: 0;
+  background: var(--bg4);
+  border-radius: 24px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: background .2s, border-color .2s;
+}
+.tgl-sw::before {
+  content:'';
+  position: absolute;
+  width: 16px; height: 16px;
+  left: 3px; top: 3px;
+  background: var(--text3);
+  border-radius: 50%;
+  transition: transform .2s, background .2s;
+}
+.toggle input:checked + .tgl-sw { background: var(--accent-dim); border-color: var(--accent-glow); }
+.toggle input:checked + .tgl-sw::before { transform: translateX(18px); background: var(--accent2); }
+.modal-footer {
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 10px;
+}
+.btn-cancel {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text2);
+  font-family: var(--body);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .13s;
+}
+.btn-cancel:hover { background: var(--bg3); color: var(--text); }
+.btn-save {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--accent-glow);
+  background: var(--accent-dim);
+  color: var(--accent2);
+  font-family: var(--body);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 7px;
+  transition: all .13s;
+}
+.btn-save:hover { background: rgba(79,124,255,0.22); border-color: var(--accent); }
+.btn-save:active { transform: scale(.98); }
+.err { font-size: 11px; color: var(--red); margin-top: 5px; font-family: var(--mono); }
+
+/* ── CONFIRM DIALOG ──────────────────────────── */
+.confirm-dialog {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.7);
+  backdrop-filter: blur(4px);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+}
+.confirm-dialog.open { display: flex; }
+.confirm-box {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  width: 340px;
+  max-width: 95vw;
+  text-align: center;
+}
+.confirm-icon  { font-size: 32px; margin-bottom: 12px; }
+.confirm-title { font-family: var(--display); font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.confirm-msg   { font-size: 13px; color: var(--text2); margin-bottom: 22px; line-height: 1.6; }
+.confirm-btns  { display: flex; gap: 10px; }
+.btn-conf-cancel { flex:1; padding:9px; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--text2); font-family:var(--body); font-size:13px; cursor:pointer; transition:all .13s; }
+.btn-conf-cancel:hover { background: var(--bg3); color: var(--text); }
+.btn-conf-del { flex:1; padding:9px; border-radius:8px; border:1px solid rgba(242,84,106,0.3); background:var(--red-dim); color:var(--red); font-family:var(--body); font-size:13px; font-weight:500; cursor:pointer; transition:all .13s; }
+.btn-conf-del:hover { background: rgba(242,84,106,0.2); }
+
+/* ── TOAST ───────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: 28px; right: 28px;
+  background: #fff;
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 12px 18px;
+  font-size: 13px;
+  color: var(--text2);
+  display: flex; align-items: center; gap: 9px;
+  z-index: 999;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all .2s;
+  pointer-events: none;
+}
+#toast.show { opacity:1; transform:translateY(0); }
+#toast .ti { font-size: 16px; }
+
+/* ── EMPTY ───────────────────────────────────── */
+.empty-state { text-align:center; padding:48px 20px; color:var(--text3); }
+.empty-state .ei { font-size:36px; margin-bottom:12px; opacity:.5; }
+.empty-state p { font-size:13px; }
+
+/* ── CARD CLICK FOOTER ───────────────────────── */
+.card-click-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 9px 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.click-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.click-footer-icon { font-size: 14px; }
+.click-footer-label {
+  font-size: 11px;
+  color: var(--text3);
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.click-footer-count {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* ── CLICK BADGE ─────────────────────────────── */
+.click-badge {
+  font-size: 11px;
+  font-family: var(--mono);
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: var(--amber-dim);
+  color: var(--amber);
+  border: 1px solid rgba(245,166,35,0.2);
+  white-space: nowrap;
+}
+
+/* ── USAGE ANALYTICS ─────────────────────────── */
+.usage-section-title {
+  font-size: 11px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-family: var(--mono);
+  margin-bottom: 14px;
+}
+.usage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.usage-row {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  transition: border-color .15s;
+  box-shadow: 0 1px 4px rgba(28,36,53,0.08);
+}
+.usage-row:hover { border-color: var(--border2); }
+.usage-row-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.usage-icon {
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.usage-info { flex: 1; min-width: 0; }
+.usage-name {
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.usage-url {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.usage-count-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.usage-count {
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--amber);
+  line-height: 1;
+}
+.usage-count-label {
+  font-size: 11px;
+  color: var(--text3);
+  font-family: var(--mono);
+}
+.reset-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text3);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 7px;
+  margin-left: 6px;
+  transition: all .13s;
+}
+.reset-btn:hover { background: var(--red-dim); color: var(--red); border-color: rgba(242,84,106,0.3); }
+.usage-bar-track {
+  height: 6px;
+  background: var(--bg4);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.usage-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width .5s ease;
+  min-width: 4px;
+}
+.stat-card.sc-clicks::before { background: var(--amber); }
+
+/* ── LOADING OVERLAY ─────────────────────────── */
+#loading-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(13,15,20,0.85);
+  backdrop-filter: blur(6px);
+  z-index: 500;
+  align-items: center;
+  justify-content: center;
+}
+#loading-overlay.show { display: flex; }
+.loading-box {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  padding: 32px 40px;
+  text-align: center;
+  min-width: 280px;
+}
+.loading-spinner {
+  width: 36px; height: 36px;
+  border: 3px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  margin: 0 auto 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-msg { font-family: var(--display); font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.loading-sub { font-size: 12px; color: var(--text3); font-family: var(--mono); }
+
+/* ── SETUP BANNER ────────────────────────────── */
+.setup-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--amber-dim);
+  border: 1px solid rgba(245,166,35,0.3);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+.setup-banner-icon { font-size: 22px; }
+.setup-banner-title {
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--amber);
+  margin-bottom: 3px;
+}
+.setup-banner-sub {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.5;
+}
+.setup-banner-sub code {
+  background: var(--bg3);
+  color: var(--amber);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+/* ── RELOAD BTN ──────────────────────────────── */
+.reload-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 13px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text3);
+  font-family: var(--body);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .13s;
+  white-space: nowrap;
+}
+.reload-btn:hover { background: var(--bg3); color: var(--text); border-color: var(--border2); }
+.reload-icon { display: inline-block; transition: transform .3s; }
+.reload-btn.spinning .reload-icon { animation: spin .8s linear infinite; }
+
+/* ── SYNC BADGE ──────────────────────────────── */
+.sync-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--amber-dim);
+  color: var(--amber);
+  border: 1px solid rgba(245,166,35,0.3);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .13s;
+}
+.sync-badge:hover { background: rgba(245,166,35,0.2); }
+
+.refresh-countdown {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  padding: 4px 10px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.last-sync {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #2f7f39;
+  white-space: nowrap;
+}
+
+/* ── SCROLLBAR ───────────────────────────────── */
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--bg4); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:var(--border2); }
+
+/* ── RESPONSIVE ──────────────────────────────── */
+@media (max-width:700px) {
+  :root { --sidebar-w:0px; }
+  #sidebar { display:none; }
+  #main { margin-left:0; }
+  .content { padding:16px; }
+  .topbar { padding:0 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside id="sidebar">
+  <div class="brand">
+    <div class="brand-icon">⚙️</div>
+    <h1>TC Tool Manager</h1>
+    <p>TCtool.ToolConfig</p>
+  </div>
+  <nav>
+    <div class="nav-label">Views</div>
+    <button class="nav-btn active" onclick="switchPane('dashboard', this)">
+      <span class="icon">📊</span> Dashboard
+    </button>
+    <button class="nav-btn" onclick="switchPane('table', this)">
+      <span class="icon">📋</span> Admin Table
+    </button>
+    <button class="nav-btn" data-pane="usage" onclick="switchPane('usage', this)">
+      <span class="icon">📈</span> Usage Analytics
+    </button>
+  </nav>
+  <div class="sidebar-footer">
+    DB: <span>TCtool</span> · Table: <span>ToolConfig</span>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main id="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="page-title">TaxCaddy Tool's Dashboard</div>
+      <div class="topbar-meta" id="page-meta"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span id="refresh-countdown" class="refresh-countdown">auto-refresh in 30s</span>
+      <span id="last-sync" class="last-sync">not synced yet</span>
+      <button id="reload-btn" class="reload-btn" onclick="manualRefresh()" title="Reload now from JSON API">
+        <span class="reload-icon">🔄</span> Reload
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- API setup banner -->
+    <div id="setup-banner" class="setup-banner" style="display:none">
+      <div class="setup-banner-icon">⚠️</div>
+      <div class="setup-banner-text">
+        <div class="setup-banner-title" id="banner-title">Backend API not reachable</div>
+        <div class="setup-banner-sub" id="banner-sub">
+          This page reads and writes through the local backend API. Start the API server so the UI can sync with <code>/data/ToolConfig.json</code>.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DASHBOARD PANE ── -->
+    <div class="pane active" id="pane-dashboard">
+      <div class="stats-row" id="stats-row"></div>
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span class="ico">🔍</span>
+          <input type="text" class="search-input" id="card-search"
+            placeholder="Search by name, description or URL…" oninput="renderCards()">
+        </div>
+        <select class="filter-select" id="card-filter" onchange="renderCards()">
+          <option value="all">Active tools</option>
+          <option value="1">Active only</option>
+          <option value="0">Inactive only</option>
+        </select>
+      </div>
+      <div class="cards-grid" id="cards-grid"></div>
+    </div>
+
+    <!-- ── TABLE PANE ── -->
+    <div class="pane" id="pane-table">
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span class="ico">🔍</span>
+          <input type="text" class="search-input" id="tbl-search" placeholder="Search table…" oninput="renderTable()">
+        </div>
+        <select class="filter-select" id="tbl-filter" onchange="renderTable()">
+          <option value="all">All status</option>
+          <option value="1">Active</option>
+          <option value="0">Inactive</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tool Name</th>
+              <th>Description <span class="new-badge">new</span></th>
+              <th>Tool URL</th>
+              <th>Created Datetime</th>
+              <th>Created By</th>
+              <th>Active</th>
+              <th>Clicks</th>
+              <th>Remark</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+        <div class="rec-count" id="rec-count"></div>
+      </div>
+    </div>
+
+    <!-- ── USAGE ANALYTICS PANE ── -->
+    <div class="pane" id="pane-usage">
+      <div style="display:flex;gap:14px;margin-bottom:28px;flex-wrap:wrap" id="usage-summary"></div>
+      <div class="usage-section-title">Click breakdown per tool</div>
+      <div class="usage-list" id="usage-bars"></div>
+      <p style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:16px">
+        Counts are stored in /data/ToolConfig.json via backend API.
+      </p>
+    </div>
+
+  </div><!-- /content -->
+</main>
+
+<!-- ═══ TOAST ═══ -->
+<div id="toast">
+  <span class="ti" id="toast-icon">✅</span>
+  <span id="toast-msg">Saved successfully</span>
+</div>
+
+<script>
+const API_BASE = '/api/tools';
+const REFRESH_MS = 30000;
+
+let tools = [];
+let nextId = 1;
+let lastSyncTime = null;
+let autoRefreshTimer = null;
+let countdownTimer = null;
+let nextRefreshAt = 0;
+
+const CARD_COLORS = [
+  { bg:'rgba(79,124,255,0.12)',  color:'#6e95ff' },
+  { bg:'rgba(62,207,142,0.12)',  color:'#3ecf8e' },
+  { bg:'rgba(245,166,35,0.12)',  color:'#f5a623' },
+  { bg:'rgba(242,84,106,0.12)',  color:'#f2546a' },
+  { bg:'rgba(168,85,247,0.12)',  color:'#c084fc' },
+  { bg:'rgba(20,184,166,0.12)',  color:'#2dd4bf' },
+];
+const CARD_ICONS = ['📊','📈','📉','🗂️','🔧','📌','🖥️','📡','🔗','⚡'];
+
+function h(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function normalizeUrl(url) {
+  const clean = String(url || '').trim();
+  if (!clean) return '';
+  if (/^https?:\/\//i.test(clean)) return clean;
+  return `https://${clean}`;
+}
+
+function normalizeTool(t) {
+  return {
+    id: Number(t.id) || 0,
+    toolname: String(t.toolname || ''),
+    tooldescription: String(t.tooldescription || ''),
+    toolurl: String(t.toolurl || ''),
+    createddatetime: String(t.createddatetime || ''),
+    createdby: String(t.createdby || ''),
+    ToolActive: (Number(t.ToolActive) === 1 || Number(t.ToolAvtive) === 1) ? 1 : 0,
+    Totaluserclickcount: Number(t.Totaluserclickcount) || 0,
+    Remark: String(t.Remark || '')
+  };
+}
+
+async function apiRequest(path, options) {
+  const response = await fetch(path, options);
+  if (!response.ok) {
+    let message = `HTTP ${response.status}`;
+    try {
+      const data = await response.json();
+      if (data && data.error) message = data.error;
+    } catch (e) {
+      // ignore parse failures and keep fallback message
+    }
+    throw new Error(message);
+  }
+  if (response.status === 204) return null;
+  return response.json();
+}
+
+function setLoading(on, msg) {
+  const el = document.getElementById('loading-overlay');
+  if (!el) return;
+  if (on) {
+    el.querySelector('.loading-msg').textContent = msg || 'Working...';
+    el.classList.add('show');
+  } else {
+    el.classList.remove('show');
+  }
+}
+
+function showApiBanner(show, detail) {
+  const banner = document.getElementById('setup-banner');
+  const sub = document.getElementById('banner-sub');
+  if (!banner || !sub) return;
+  banner.style.display = show ? 'flex' : 'none';
+  if (show && detail) {
+    sub.textContent = `Could not connect to backend API: ${detail}. Start server.js and reload.`;
+  }
+}
+
+function updateLastSyncLabel() {
+  const el = document.getElementById('last-sync');
+  if (!el) return;
+  el.textContent = lastSyncTime ? `synced ${lastSyncTime.toLocaleTimeString()}` : 'not synced yet';
+}
+
+function updateCountdown() {
+  const el = document.getElementById('refresh-countdown');
+  if (!el) return;
+  const secs = Math.max(0, Math.round((nextRefreshAt - Date.now()) / 1000));
+  el.textContent = `auto-refresh in ${secs}s`;
+}
+
+function startAutoRefresh() {
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  if (countdownTimer) clearInterval(countdownTimer);
+  nextRefreshAt = Date.now() + REFRESH_MS;
+  autoRefreshTimer = setInterval(() => {
+    nextRefreshAt = Date.now() + REFRESH_MS;
+    loadFromApi(true);
+  }, REFRESH_MS);
+  countdownTimer = setInterval(updateCountdown, 1000);
+  updateCountdown();
+}
+
+async function loadFromApi(silent) {
+  if (!silent) setLoading(true, 'Loading from API...');
+  const reloadBtn = document.getElementById('reload-btn');
+  if (reloadBtn) reloadBtn.classList.add('spinning');
+
+  try {
+    const rows = await apiRequest(API_BASE, { method: 'GET' });
+    tools = (rows || []).map(normalizeTool);
+    nextId = Math.max(0, ...tools.map(t => Number(t.id) || 0)) + 1;
+    lastSyncTime = new Date();
+    showApiBanner(false);
+    if (!silent) showToast('📂', `Loaded ${tools.length} tools`);
+  } catch (error) {
+    console.error(error);
+    showApiBanner(true, error.message);
+    if (!silent) showToast('❌', `Could not load data: ${error.message}`);
+  } finally {
+    if (reloadBtn) reloadBtn.classList.remove('spinning');
+    setLoading(false);
+    renderStats();
+    renderCards();
+    renderTable();
+    updateLastSyncLabel();
+  }
+}
+
+async function manualRefresh() {
+  nextRefreshAt = Date.now() + REFRESH_MS;
+  await loadFromApi(false);
+}
+
+const titles = { dashboard:"TaxCaddy Tool's Dashboard", table:'Admin Table', usage:'Usage Analytics' };
+const metas  = {
+  dashboard: '',
+  table:     'TCtool.ToolConfig — full record view',
+  usage:     'Totaluserclickcount per tool — all-time totals'
+};
+
+function switchPane(id, btn) {
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('pane-'+id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  document.getElementById('page-title').textContent = titles[id];
+  document.getElementById('page-meta').textContent  = metas[id];
+  if (id === 'dashboard') { renderStats(); renderCards(); }
+  if (id === 'table') renderTable();
+  if (id === 'usage') renderUsage();
+}
+
+function renderStats() {
+  const total  = tools.length;
+  const active = tools.filter(t => t.ToolActive).length;
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card sc-total">
+      <div class="stat-label">Total Tools</div>
+      <div class="stat-value">${total}</div>
+      <div class="stat-sub">All registered tools</div>
+    </div>
+    <div class="stat-card sc-active">
+      <div class="stat-label">Active</div>
+      <div class="stat-value">${active}</div>
+      <div class="stat-sub">Currently live</div>
+    </div>
+    <div class="stat-card sc-inactive">
+      <div class="stat-label">Inactive</div>
+      <div class="stat-value">${total - active}</div>
+      <div class="stat-sub">Disabled / paused</div>
+    </div>`;
+}
+
+function renderCards() {
+  const q = (document.getElementById('card-search').value||'').toLowerCase();
+  const f = document.getElementById('card-filter').value;
+  const list = tools.filter(t => {
+    if (f === 'all' && !t.ToolActive) return false;
+    const mq = !q
+      || t.toolname.toLowerCase().includes(q)
+      || (t.tooldescription||'').toLowerCase().includes(q)
+      || t.toolurl.toLowerCase().includes(q);
+    const mf = f === 'all' || String(t.ToolActive) === f;
+    return mq && mf;
+  });
+
+  const el = document.getElementById('cards-grid');
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="ei">🔍</div><p>No tools match your filter.</p></div>';
+    return;
+  }
+
+  el.innerHTML = list.map(t => {
+    const c = CARD_COLORS[t.id % CARD_COLORS.length];
+    const ic = CARD_ICONS[t.id % CARD_ICONS.length];
+    const cnt = t.Totaluserclickcount || 0;
+    const safeUrl = normalizeUrl(t.toolurl);
+    const desc = t.tooldescription
+      ? `<div class="card-desc">${h(t.tooldescription)}</div>`
+      : `<div class="card-desc empty-desc">No description added yet.</div>`;
+    const remark = t.Remark ? `<div class="card-remark">📝 ${h(t.Remark)}</div>` : '';
+
+    return `
+    <div class="tool-card${t.ToolActive ? '' : ' inactive'}">
+      <div class="card-head">
+        <div class="card-av" style="background:${c.bg};color:${c.color}">${ic}</div>
+        <span class="pill ${t.ToolActive ? 'pill-on' : 'pill-off'}">${t.ToolActive ? 'Active' : 'Inactive'}</span>
+      </div>
+      <div class="card-name">${h(t.toolname)}</div>
+      ${desc}
+      <div class="card-url-row">
+        <a class="card-url" href="${h(safeUrl)}" target="_blank" rel="noopener" title="${h(t.toolurl)}" onclick="trackClick(${t.id})">${h(t.toolurl)}</a>
+        <a class="launch-btn" href="${h(safeUrl)}" target="_blank" rel="noopener" onclick="trackClick(${t.id})">🚀 Open</a>
+      </div>
+      ${remark}
+      <div class="card-meta">By ${h(t.createdby)} · ${h(t.createddatetime)}</div>
+      <div class="card-click-footer" id="click-footer-${t.id}">
+        <div class="click-footer-left">
+          <span class="click-footer-icon">👆</span>
+          <span class="click-footer-label">Total user clicks</span>
+        </div>
+        <span class="click-footer-count" style="color:${c.color}">${cnt}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTable() {
+  const q = (document.getElementById('tbl-search').value||'').toLowerCase();
+  const f = document.getElementById('tbl-filter').value;
+  const list = tools.filter(t => {
+    const mq = !q
+      || t.toolname.toLowerCase().includes(q)
+      || (t.tooldescription||'').toLowerCase().includes(q)
+      || t.toolurl.toLowerCase().includes(q)
+      || t.createdby.toLowerCase().includes(q);
+    const mf = f === 'all' || String(t.ToolActive) === f;
+    return mq && mf;
+  });
+
+  document.getElementById('rec-count').textContent = `Showing ${list.length} of ${tools.length} records`;
+  const body = document.getElementById('tbl-body');
+  if (!list.length) {
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--text3)">No records found</td></tr>';
+    return;
+  }
+
+  body.innerHTML = list.map(t => {
+    const safeUrl = normalizeUrl(t.toolurl);
+    return `
+    <tr>
+      <td class="td-id">${t.id}</td>
+      <td class="td-name">${h(t.toolname)}</td>
+      <td class="td-desc">${t.tooldescription ? h(t.tooldescription) : '<span style="color:var(--text3);font-style:italic">—</span>'}</td>
+      <td><a class="td-url" href="${h(safeUrl)}" target="_blank" rel="noopener" onclick="trackClick(${t.id})">${h(t.toolurl)}</a></td>
+      <td class="td-date">${h(t.createddatetime)}</td>
+      <td>${h(t.createdby)}</td>
+      <td><span class="pill ${t.ToolActive ? 'pill-on' : 'pill-off'}">${t.ToolActive ? 'Yes' : 'No'}</span></td>
+      <td><span class="click-badge">👆 ${t.Totaluserclickcount || 0}</span></td>
+      <td style="max-width:140px;font-size:12px;color:var(--text3)">${h(t.Remark)||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function trackClick(id) {
+  const t = tools.find(x => x.id === id);
+  if (!t) return;
+  t.Totaluserclickcount = (t.Totaluserclickcount || 0) + 1;
+  const footer = document.getElementById(`click-footer-${id}`);
+  if (footer) {
+    const span = footer.querySelector('.click-footer-count');
+    if (span) span.textContent = t.Totaluserclickcount;
+  }
+  if (document.getElementById('pane-table').classList.contains('active')) renderTable();
+  if (document.getElementById('pane-usage').classList.contains('active')) renderUsage();
+
+  apiRequest(`${API_BASE}/${id}/click`, { method: 'PATCH', keepalive: true }).catch(err => {
+    console.error(err);
+  });
+}
+
+function renderUsage() {
+  const sorted = [...tools].sort((a,b) => (b.Totaluserclickcount||0) - (a.Totaluserclickcount||0));
+  const maxClicks = Math.max(...sorted.map(t => t.Totaluserclickcount || 0), 1);
+  const total = tools.reduce((s,t) => s + (t.Totaluserclickcount || 0), 0);
+  const topTool = sorted[0];
+
+  document.getElementById('usage-summary').innerHTML = `
+    <div class="stat-card sc-clicks" style="flex:1">
+      <div class="stat-label">Total Clicks</div>
+      <div class="stat-value" style="color:var(--amber)">${total}</div>
+      <div class="stat-sub">Across all tools</div>
+    </div>
+    <div class="stat-card sc-active" style="flex:1">
+      <div class="stat-label">Most Used</div>
+      <div class="stat-value" style="font-size:18px;color:var(--green)">${topTool ? h(topTool.toolname) : '—'}</div>
+      <div class="stat-sub">${topTool ? (topTool.Totaluserclickcount||0) : 0} clicks</div>
+    </div>
+    <div class="stat-card sc-total" style="flex:1">
+      <div class="stat-label">Tools Clicked</div>
+      <div class="stat-value">${tools.filter(t => (t.Totaluserclickcount||0) > 0).length}</div>
+      <div class="stat-sub">Have at least 1 click</div>
+    </div>`;
+
+  document.getElementById('usage-bars').innerHTML = sorted.map(t => {
+    const n = t.Totaluserclickcount || 0;
+    const pct = maxClicks > 0 ? Math.round((n / maxClicks) * 100) : 0;
+    const c = CARD_COLORS[t.id % CARD_COLORS.length];
+    const ic = CARD_ICONS[t.id % CARD_ICONS.length];
+    return `
+    <div class="usage-row">
+      <div class="usage-row-head">
+        <div class="usage-icon" style="background:${c.bg};color:${c.color}">${ic}</div>
+        <div class="usage-info">
+          <div class="usage-name">${h(t.toolname)}</div>
+          <div class="usage-url">${h(t.toolurl)}</div>
+        </div>
+        <div class="usage-count-wrap">
+          <span class="usage-count" style="color:${c.color}">${n}</span>
+          <span class="usage-count-label">clicks</span>
+        </div>
+      </div>
+      <div class="usage-bar-track">
+        <div class="usage-bar-fill" style="width:${pct}%;background:${c.color}"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let toastTimer;
+function showToast(icon, msg) {
+  clearTimeout(toastTimer);
+  document.getElementById('toast-icon').textContent = icon;
+  document.getElementById('toast-msg').textContent = msg;
+  document.getElementById('toast').classList.add('show');
+  toastTimer = setTimeout(() => document.getElementById('toast').classList.remove('show'), 2800);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') return;
+});
+
+loadFromApi(false);
+startAutoRefresh();
+</script>
+<!-- ═══ LOADING OVERLAY ═══ -->
+<div id="loading-overlay">
+  <div class="loading-box">
+    <div class="loading-spinner"></div>
+    <div class="loading-msg">Loading from API…</div>
+    <div class="loading-sub">Reading /data/ToolConfig.json</div>
+  </div>
+</div>
+
+</body>
+</html>

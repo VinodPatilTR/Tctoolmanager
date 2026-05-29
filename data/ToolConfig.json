@@ -1,0 +1,81 @@
+{
+  "tools": [
+    {
+      "id": 1,
+      "toolname": "Automation Runner",
+      "tooldescription": "Any one can user this tool to run automation suite",
+      "toolurl": "www.automationrunner.com",
+      "createddatetime": "22-05-2026",
+      "createdby": "Niwrutti Ahire",
+      "ToolActive": 1,
+      "Totaluserclickcount": 2,
+      "Remark": ""
+    },
+    {
+      "id": 2,
+      "toolname": "Git branches cleanup tool",
+      "tooldescription": "Any one can  cleanup there inactive branche",
+      "toolurl": "www.gitbranchescleanuptool.com",
+      "createddatetime": "25-05-2026",
+      "createdby": "Pappu sing22",
+      "ToolActive": 1,
+      "Totaluserclickcount": 0,
+      "Remark": ""
+    },
+    {
+      "id": 3,
+      "toolname": "Test createion tool",
+      "tooldescription": "Test creation",
+      "toolurl": "www.testcreationtool.com",
+      "createddatetime": "15-02-2026",
+      "createdby": "Anirudha Thombre",
+      "ToolActive": 1,
+      "Totaluserclickcount": 2,
+      "Remark": ""
+    },
+    {
+      "id": 4,
+      "toolname": "mytool",
+      "tooldescription": "mytool",
+      "toolurl": "www.mytool.com",
+      "createddatetime": "28-05-2026",
+      "createdby": "vinod",
+      "ToolActive": 1,
+      "Totaluserclickcount": 5,
+      "Remark": ""
+    },
+    {
+      "id": 5,
+      "toolname": "genere report",
+      "tooldescription": "generate report",
+      "toolurl": "www.tcgenearterepport.com",
+      "createddatetime": "28-05-2026",
+      "createdby": "Ravindra",
+      "ToolActive": 1,
+      "Totaluserclickcount": 0,
+      "Remark": ""
+    },
+    {
+      "id": 6,
+      "toolname": "taxcaddy pulse",
+      "tooldescription": "taxcaddy pulse",
+      "toolurl": "www.taxcaddypulse.com",
+      "createddatetime": "28-05-2026",
+      "createdby": "jantosh",
+      "ToolActive": 1,
+      "Totaluserclickcount": 1,
+      "Remark": ""
+    },
+    {
+      "id": 7,
+      "toolname": "Sunil new tool",
+      "tooldescription": "new tool",
+      "toolurl": "www.newtoo.com",
+      "createddatetime": "29-05-2026",
+      "createdby": "Sunil",
+      "ToolActive": 1,
+      "Totaluserclickcount": 0,
+      "Remark": ""
+    }
+  ]
+}
