@@ -6,7 +6,7 @@
 // Auth mirrors SSMS "Azure Active Directory - Universal with MFA":
 //   1. Run once:  az login
 //   2. Run:       npm run start:sql
-//   3. Open:      http://localhost:3000/ToolConfigManager_6.html
+//   3. Open:      http://localhost:3000/TCToolConfigManager.html
 //
 // Required env vars (set in PowerShell before running):
 //   $env:SQL_SERVER   = "eu2-dev-taxcaddy-sqlsrv.database.windows.net"
@@ -275,7 +275,7 @@ async function deleteTool(id) {
 
 // ── Static file serving ──────────────────────────────────────
 function toFilePath(urlPath) {
-  const cleaned = urlPath === '/' ? '/ToolConfigManager_6.html' : urlPath;
+  const cleaned = urlPath === '/' ? '/TCToolConfigManager.html' : urlPath;
   const safe = path.normalize(cleaned).replace(/^([.][.][/\\])+/, '');
   return path.join(rootDir, safe);
 }

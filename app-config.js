@@ -1,6 +1,6 @@
 // Backend: Azure SQL via sql-server.js (uses your AAD/SSMS login).
 // Start backend:  az login   ->   npm install   ->   npm run start:sql
-// Open the page:  http://localhost:3000/ToolConfigManager_6.html
+// Open the page:  http://localhost:3000/TCToolConfigManager.html
 window.TCTOOL_LOCAL_MODE = false;
 window.TCTOOL_DIRECT_GITHUB_MODE = false;
 

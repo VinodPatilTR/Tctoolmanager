@@ -149,7 +149,7 @@ async function readJsonBody(req) {
 }
 
 function toFilePath(urlPath) {
-  const cleanedPath = urlPath === '/' ? '/ToolConfigManager_6.html' : urlPath;
+  const cleanedPath = urlPath === '/' ? '/TCToolConfigManager.html' : urlPath;
   const safePath = path.normalize(cleanedPath).replace(/^([.][.][/\\])+/, '');
   return path.join(rootDir, safePath);
 }
