@@ -1225,16 +1225,18 @@ tbody tr:hover td { background: var(--bg3); }
   <span id="toast-msg">Saved successfully</span>
 </div>
 
-<script src="./app-config.js?v=20260529b"></script>
+<script src="./app-config.js?v=20260529e"></script>
 <script>
 let API_BASE = window.TCTOOL_API_BASE || '/api/tools';
 const API_CANDIDATES = Array.isArray(window.TCTOOL_API_CANDIDATES) ? window.TCTOOL_API_CANDIDATES : [];
+const LOCAL_MODE = window.TCTOOL_LOCAL_MODE === true;
 const DIRECT_GITHUB_MODE = window.TCTOOL_DIRECT_GITHUB_MODE === true;
 const GITHUB_OWNER = window.TCTOOL_GITHUB_OWNER || '';
 const GITHUB_REPO = window.TCTOOL_GITHUB_REPO || '';
 const GITHUB_BRANCH = window.TCTOOL_GITHUB_BRANCH || 'main';
 const GITHUB_FILE_PATH = window.TCTOOL_GITHUB_FILE_PATH || 'data/ToolConfig.json';
 const GITHUB_TOKEN = window.TCTOOL_GITHUB_TOKEN || '';
+const LOCAL_STORAGE_KEY = window.TCTOOL_LOCAL_STORAGE_KEY || 'tctool.toolconfig.local.v1';
 const REFRESH_MS = 30000;
 
 let tools = [];
@@ -1292,6 +1294,9 @@ function normalizeTool(t) {
 }
 
 async function apiRequest(path, options) {
+  if (LOCAL_MODE) {
+    return localJsonRequest(path, options);
+  }
   if (DIRECT_GITHUB_MODE) {
     return directJsonRequest(path, options);
   }
@@ -1308,6 +1313,96 @@ async function apiRequest(path, options) {
   }
   if (response.status === 204) return null;
   return response.json();
+}
+
+function makeDefaultStore() {
+  return { tools: [] };
+}
+
+function readLocalStoreSync() {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!raw) return makeDefaultStore();
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.tools)) return makeDefaultStore();
+    return { tools: parsed.tools.map(normalizeTool) };
+  } catch (error) {
+    console.error(error);
+    return makeDefaultStore();
+  }
+}
+
+function writeLocalStoreSync(store) {
+  const output = {
+    tools: Array.isArray(store.tools) ? store.tools.map(normalizeTool) : []
+  };
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(output));
+}
+
+async function bootstrapLocalStoreIfEmpty() {
+  const existing = readLocalStoreSync();
+  if (existing.tools.length > 0) return;
+  try {
+    const response = await fetch('./data/ToolConfig.json', { cache: 'no-store' });
+    if (!response.ok) return;
+    const seed = await response.json();
+    if (seed && Array.isArray(seed.tools) && seed.tools.length > 0) {
+      writeLocalStoreSync({ tools: seed.tools.map(normalizeTool) });
+    }
+  } catch (error) {
+    // On file:// this fetch may be blocked; keep empty local store.
+  }
+}
+
+async function localJsonRequest(path, options) {
+  await bootstrapLocalStoreIfEmpty();
+
+  const method = String((options && options.method) || 'GET').toUpperCase();
+  const route = parseToolRoute(path);
+  const store = readLocalStoreSync();
+
+  if (method === 'GET' && route.type === 'collection') {
+    return store.tools;
+  }
+
+  if (method === 'POST' && route.type === 'collection') {
+    const body = options && options.body ? JSON.parse(String(options.body)) : {};
+    const payload = normalizeTool(body || {});
+    payload.id = Math.max(0, ...store.tools.map(t => Number(t.id) || 0)) + 1;
+    if (!payload.createddatetime) payload.createddatetime = nowStr();
+    store.tools.push(payload);
+    writeLocalStoreSync(store);
+    return payload;
+  }
+
+  if (method === 'PUT' && route.type === 'item') {
+    const idx = store.tools.findIndex(t => Number(t.id) === route.id);
+    if (idx === -1) throw new Error('Tool not found');
+    const body = options && options.body ? JSON.parse(String(options.body)) : {};
+    const payload = normalizeTool({ ...store.tools[idx], ...body, id: route.id });
+    store.tools[idx] = payload;
+    writeLocalStoreSync(store);
+    return payload;
+  }
+
+  if (method === 'PATCH' && route.type === 'click') {
+    const idx = store.tools.findIndex(t => Number(t.id) === route.id);
+    if (idx === -1) throw new Error('Tool not found');
+    const cur = Number(store.tools[idx].Totaluserclickcount) || 0;
+    store.tools[idx].Totaluserclickcount = cur + 1;
+    writeLocalStoreSync(store);
+    return store.tools[idx];
+  }
+
+  if (method === 'DELETE' && route.type === 'item') {
+    const before = store.tools.length;
+    store.tools = store.tools.filter(t => Number(t.id) !== route.id);
+    if (store.tools.length === before) throw new Error('Tool not found');
+    writeLocalStoreSync(store);
+    return null;
+  }
+
+  throw new Error('Unsupported local operation');
 }
 
 function githubPathEncode(filePath) {
@@ -1435,7 +1530,7 @@ async function directJsonRequest(path, options) {
 }
 
 async function resolveApiBase() {
-  if (DIRECT_GITHUB_MODE) {
+  if (LOCAL_MODE || DIRECT_GITHUB_MODE) {
     return API_BASE;
   }
   const unique = [];
@@ -1469,6 +1564,9 @@ function setLoading(on, msg) {
 }
 
 function showApiBanner(show, detail) {
+  if (LOCAL_MODE) {
+    show = false;
+  }
   const banner = document.getElementById('setup-banner');
   const sub = document.getElementById('banner-sub');
   if (!banner || !sub) return;
@@ -1504,7 +1602,7 @@ function startAutoRefresh() {
 }
 
 async function loadFromApi(silent) {
-  if (!silent) setLoading(true, 'Loading from API...');
+  if (!silent) setLoading(true, LOCAL_MODE ? 'Loading local data...' : 'Loading from API...');
   const reloadBtn = document.getElementById('reload-btn');
   if (reloadBtn) reloadBtn.classList.add('spinning');
 
@@ -1516,7 +1614,10 @@ async function loadFromApi(silent) {
     lastSyncTime = new Date();
     isStaticMode = false;
     showApiBanner(false);
-    if (!silent) showToast('📂', `Loaded ${tools.length} tools`);
+    if (!silent) {
+      const modeLabel = LOCAL_MODE ? 'local mode' : 'api mode';
+      showToast('📂', `Loaded ${tools.length} tools (${modeLabel})`);
+    }
   } catch (error) {
     console.error(error);
     showApiBanner(true, error.message);
@@ -1955,7 +2056,7 @@ startAutoRefresh();
   <div class="loading-box">
     <div class="loading-spinner"></div>
     <div class="loading-msg">Loading from API…</div>
-    <div class="loading-sub">Reading /data/ToolConfig.json</div>
+    <div class="loading-sub">Reading dbo.TCToolConfig from Azure SQL</div>
   </div>
 </div>
 

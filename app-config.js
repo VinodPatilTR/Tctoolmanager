@@ -1,9 +1,17 @@
-// HTML-only mode: read/write ToolConfig.json directly via GitHub Contents API.
-// This avoids separate backend deployment.
-window.TCTOOL_DIRECT_GITHUB_MODE = true;
+// Backend: Azure SQL via sql-server.js (uses your AAD/SSMS login).
+// Start backend:  az login   ->   npm install   ->   npm run start:sql
+// Open the page:  http://localhost:3000/ToolConfigManager_6.html
+window.TCTOOL_LOCAL_MODE = false;
+window.TCTOOL_DIRECT_GITHUB_MODE = false;
 
-// Route shape is still /api/tools for in-page logic.
+// Same-origin API path served by sql-server.js
 window.TCTOOL_API_BASE = '/api/tools';
+
+// Fallback bases used when the page is opened via file:// instead of the server.
+window.TCTOOL_API_CANDIDATES = [
+  'http://localhost:3000/api/tools',
+  'http://127.0.0.1:3000/api/tools'
+];
 
 // GitHub target file.
 window.TCTOOL_GITHUB_OWNER = 'VinodPatilTR';

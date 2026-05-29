@@ -2,9 +2,13 @@
   "name": "tctool-config-manager",
   "version": "1.0.0",
   "private": true,
-  "description": "Small backend API for ToolConfig JSON storage",
+  "description": "Small backend API for ToolConfig JSON / Azure SQL storage",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "start:sql": "node sql-server.js"
+  },
+  "dependencies": {
+    "mssql": "^11.0.1"
   }
 }

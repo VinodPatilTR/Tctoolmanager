@@ -1086,7 +1086,7 @@ tbody tr:hover td { background: var(--bg3); }
       <div class="setup-banner-text">
         <div class="setup-banner-title" id="banner-title">Backend API not reachable</div>
         <div class="setup-banner-sub" id="banner-sub">
-          This page reads and writes through the local backend API. Start the API server so the UI can sync with <code>/data/ToolConfig.json</code>.
+          This page reads and writes through the local backend API. Start the API server so the UI can sync with <code>dbo.TCToolConfig</code> in Azure SQL.
         </div>
       </div>
     </div>
@@ -1149,7 +1149,7 @@ tbody tr:hover td { background: var(--bg3); }
       <div class="usage-section-title">Click breakdown per tool</div>
       <div class="usage-list" id="usage-bars"></div>
       <p style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:16px">
-        Counts are stored in /data/ToolConfig.json via backend API.
+        Counts are stored in dbo.TCToolConfig (Azure SQL) via backend API.
       </p>
     </div>
 
@@ -1162,7 +1162,7 @@ tbody tr:hover td { background: var(--bg3); }
   <span id="toast-msg">Saved successfully</span>
 </div>
 
-<script src="./app-config.js?v=20260529b"></script>
+<script src="./app-config.js?v=20260529e"></script>
 <script>
 let API_BASE = window.TCTOOL_API_BASE || '/api/tools';
 const API_CANDIDATES = Array.isArray(window.TCTOOL_API_CANDIDATES) ? window.TCTOOL_API_CANDIDATES : [];
@@ -1654,7 +1654,7 @@ startAutoRefresh();
   <div class="loading-box">
     <div class="loading-spinner"></div>
     <div class="loading-msg">Loading from API…</div>
-    <div class="loading-sub">Reading /data/ToolConfig.json</div>
+    <div class="loading-sub">Reading dbo.TCToolConfig from Azure SQL</div>
   </div>
 </div>
 
