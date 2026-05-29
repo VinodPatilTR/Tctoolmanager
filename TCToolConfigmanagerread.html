@@ -1164,7 +1164,14 @@ tbody tr:hover td { background: var(--bg3); }
 
 <script src="./app-config.js"></script>
 <script>
-const API_BASE = window.TCTOOL_API_BASE || '/api/tools';
+let API_BASE = window.TCTOOL_API_BASE || '/api/tools';
+const API_CANDIDATES = Array.isArray(window.TCTOOL_API_CANDIDATES) ? window.TCTOOL_API_CANDIDATES : [];
+const DIRECT_GITHUB_MODE = window.TCTOOL_DIRECT_GITHUB_MODE === true;
+const GITHUB_OWNER = window.TCTOOL_GITHUB_OWNER || '';
+const GITHUB_REPO = window.TCTOOL_GITHUB_REPO || '';
+const GITHUB_BRANCH = window.TCTOOL_GITHUB_BRANCH || 'main';
+const GITHUB_FILE_PATH = window.TCTOOL_GITHUB_FILE_PATH || 'data/ToolConfig.json';
+const GITHUB_TOKEN = window.TCTOOL_GITHUB_TOKEN || '';
 const REFRESH_MS = 30000;
 
 let tools = [];
@@ -1212,6 +1219,9 @@ function normalizeTool(t) {
 }
 
 async function apiRequest(path, options) {
+  if (DIRECT_GITHUB_MODE) {
+    return directJsonRequest(path, options);
+  }
   const response = await fetch(path, options);
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
@@ -1225,6 +1235,125 @@ async function apiRequest(path, options) {
   }
   if (response.status === 204) return null;
   return response.json();
+}
+
+function githubPathEncode(filePath) {
+  return String(filePath).split('/').map(encodeURIComponent).join('/');
+}
+
+async function githubRequest(url, options) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Accept': 'application/vnd.github+json',
+      ...(GITHUB_TOKEN ? { 'Authorization': `Bearer ${GITHUB_TOKEN}` } : {}),
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(options && options.headers ? options.headers : {})
+    }
+  });
+
+  if (!response.ok) {
+    let message = `HTTP ${response.status}`;
+    try {
+      const err = await response.json();
+      if (err && err.message) message = err.message;
+    } catch (e) {
+      // keep fallback
+    }
+    throw new Error(message);
+  }
+
+  if (response.status === 204) return null;
+  return response.json();
+}
+
+async function readGithubStore() {
+  if (!GITHUB_OWNER || !GITHUB_REPO) {
+    throw new Error('GitHub owner/repo is missing in app-config.js');
+  }
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${githubPathEncode(GITHUB_FILE_PATH)}?ref=${encodeURIComponent(GITHUB_BRANCH)}`;
+  const data = await githubRequest(url, { method: 'GET' });
+  const raw = atob(String(data.content || '').replace(/\n/g, ''));
+  const parsed = JSON.parse(raw || '{}');
+  if (!Array.isArray(parsed.tools)) parsed.tools = [];
+  return { store: parsed, sha: data.sha || null };
+}
+
+async function writeGithubStore(store, sha, message) {
+  if (!GITHUB_TOKEN) {
+    throw new Error('GitHub token is required for write. Set window.TCTOOL_GITHUB_TOKEN in app-config.js');
+  }
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${githubPathEncode(GITHUB_FILE_PATH)}`;
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(store, null, 2) + '\n')));
+  const body = {
+    message: message || 'Update ToolConfig.json from UI',
+    content,
+    branch: GITHUB_BRANCH,
+    ...(sha ? { sha } : {})
+  };
+  await githubRequest(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+}
+
+function parseToolRoute(path) {
+  const base = String(API_BASE || '').replace(/\/$/, '');
+  const full = String(path || '');
+  const tail = full.startsWith(base) ? full.slice(base.length) : full;
+  if (!tail || tail === '') return { type: 'collection' };
+  const click = tail.match(/^\/(\d+)\/click$/);
+  if (click) return { type: 'click', id: Number(click[1]) };
+  const item = tail.match(/^\/(\d+)$/);
+  if (item) return { type: 'item', id: Number(item[1]) };
+  throw new Error('Unsupported direct route');
+}
+
+async function directJsonRequest(path, options) {
+  const method = String((options && options.method) || 'GET').toUpperCase();
+  const route = parseToolRoute(path);
+
+  if (method === 'GET' && route.type === 'collection') {
+    const { store } = await readGithubStore();
+    return store.tools;
+  }
+
+  const { store, sha } = await readGithubStore();
+
+  if (method === 'PATCH' && route.type === 'click') {
+    const idx = store.tools.findIndex(t => Number(t.id) === route.id);
+    if (idx === -1) throw new Error('Tool not found');
+    const cur = Number(store.tools[idx].Totaluserclickcount) || 0;
+    store.tools[idx].Totaluserclickcount = cur + 1;
+    await writeGithubStore(store, sha, 'Increment tool click count from UI');
+    return store.tools[idx];
+  }
+
+  throw new Error('Unsupported direct operation');
+}
+
+async function resolveApiBase() {
+  if (DIRECT_GITHUB_MODE) {
+    return API_BASE;
+  }
+  const unique = [];
+  [API_BASE, ...API_CANDIDATES].forEach(base => {
+    const normalized = String(base || '').trim().replace(/\/$/, '');
+    if (normalized && !unique.includes(normalized)) unique.push(normalized);
+  });
+
+  for (let i = 0; i < unique.length; i += 1) {
+    const candidate = unique[i];
+    try {
+      await apiRequest(candidate, { method: 'GET' });
+      API_BASE = candidate;
+      return candidate;
+    } catch (err) {
+      // try next candidate
+    }
+  }
+  return API_BASE;
 }
 
 function setLoading(on, msg) {
@@ -1279,6 +1408,7 @@ async function loadFromApi(silent) {
   if (reloadBtn) reloadBtn.classList.add('spinning');
 
   try {
+    await resolveApiBase();
     const rows = await apiRequest(API_BASE, { method: 'GET' });
     tools = (rows || []).map(normalizeTool);
     nextId = Math.max(0, ...tools.map(t => Number(t.id) || 0)) + 1;
