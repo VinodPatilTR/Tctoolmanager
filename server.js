@@ -6,6 +6,12 @@ const { URL } = require('url');
 const PORT = Number(process.env.PORT) || 3000;
 const rootDir = __dirname;
 const dataFilePath = path.join(rootDir, 'data', 'ToolConfig.json');
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
+const GITHUB_OWNER = process.env.GITHUB_OWNER || 'VinodPatilTR';
+const GITHUB_REPO = process.env.GITHUB_REPO || 'Tctoolmanager';
+const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main';
+const GITHUB_FILE_PATH = process.env.GITHUB_FILE_PATH || 'data/ToolConfig.json';
+const USE_GITHUB_STORAGE = Boolean(GITHUB_TOKEN);
 
 function sendJson(res, statusCode, payload) {
   const body = JSON.stringify(payload);
@@ -26,18 +32,75 @@ function sendText(res, statusCode, text) {
   res.end(text);
 }
 
-async function readStore() {
-  const raw = await fs.readFile(dataFilePath, 'utf8');
+function githubPathEncode(filePath) {
+  return filePath.split('/').map(encodeURIComponent).join('/');
+}
+
+async function githubRequest(url, options) {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Accept': 'application/vnd.github+json',
+      'Authorization': `Bearer ${GITHUB_TOKEN}`,
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(options && options.headers ? options.headers : {})
+    }
+  });
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const err = await res.json();
+      if (err && err.message) detail = err.message;
+    } catch (e) {
+      // keep fallback detail
+    }
+    throw new Error(detail);
+  }
+
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+async function readStoreWithMeta() {
+  if (!USE_GITHUB_STORAGE) {
+    const raw = await fs.readFile(dataFilePath, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!parsed.tools || !Array.isArray(parsed.tools)) {
+      parsed.tools = [];
+    }
+    return { store: parsed, sha: null };
+  }
+
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${githubPathEncode(GITHUB_FILE_PATH)}?ref=${encodeURIComponent(GITHUB_BRANCH)}`;
+  const data = await githubRequest(url, { method: 'GET' });
+  const raw = Buffer.from(String(data.content || '').replace(/\n/g, ''), 'base64').toString('utf8');
   const parsed = JSON.parse(raw);
   if (!parsed.tools || !Array.isArray(parsed.tools)) {
     parsed.tools = [];
   }
-  return parsed;
+  return { store: parsed, sha: data.sha || null };
 }
 
-async function writeStore(store) {
+async function writeStore(store, sha) {
   const output = JSON.stringify(store, null, 2) + '\n';
-  await fs.writeFile(dataFilePath, output, 'utf8');
+  if (!USE_GITHUB_STORAGE) {
+    await fs.writeFile(dataFilePath, output, 'utf8');
+    return;
+  }
+
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${githubPathEncode(GITHUB_FILE_PATH)}`;
+  const body = {
+    message: 'Update ToolConfig.json via API',
+    content: Buffer.from(output, 'utf8').toString('base64'),
+    branch: GITHUB_BRANCH,
+    ...(sha ? { sha } : {})
+  };
+  await githubRequest(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
 }
 
 function normalizeTool(input) {
@@ -139,14 +202,14 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (req.method === 'GET' && pathname === '/api/tools') {
-      const store = await readStore();
+      const { store } = await readStoreWithMeta();
       sendJson(res, 200, store.tools);
       return;
     }
 
     if (req.method === 'POST' && pathname === '/api/tools') {
       const input = await readJsonBody(req);
-      const store = await readStore();
+      const { store, sha } = await readStoreWithMeta();
       const payload = normalizeTool(input || {});
       payload.id = Math.max(0, ...store.tools.map(t => Number(t.id) || 0)) + 1;
 
@@ -165,7 +228,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       store.tools.push(payload);
-      await writeStore(store);
+      await writeStore(store, sha);
       sendJson(res, 201, payload);
       return;
     }
@@ -174,7 +237,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'PUT' && putMatch) {
       const id = Number(putMatch[1]);
       const input = await readJsonBody(req);
-      const store = await readStore();
+      const { store, sha } = await readStoreWithMeta();
       const idx = store.tools.findIndex(t => Number(t.id) === id);
       if (idx === -1) {
         sendJson(res, 404, { error: 'Tool not found' });
@@ -189,7 +252,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       store.tools[idx] = merged;
-      await writeStore(store);
+      await writeStore(store, sha);
       sendJson(res, 200, merged);
       return;
     }
@@ -197,7 +260,7 @@ const server = http.createServer(async (req, res) => {
     const clickMatch = pathname.match(/^\/api\/tools\/(\d+)\/click$/);
     if (req.method === 'PATCH' && clickMatch) {
       const id = Number(clickMatch[1]);
-      const store = await readStore();
+      const { store, sha } = await readStoreWithMeta();
       const idx = store.tools.findIndex(t => Number(t.id) === id);
       if (idx === -1) {
         sendJson(res, 404, { error: 'Tool not found' });
@@ -206,7 +269,7 @@ const server = http.createServer(async (req, res) => {
 
       const current = Number(store.tools[idx].Totaluserclickcount) || 0;
       store.tools[idx].Totaluserclickcount = current + 1;
-      await writeStore(store);
+      await writeStore(store, sha);
       sendJson(res, 200, store.tools[idx]);
       return;
     }
@@ -214,7 +277,7 @@ const server = http.createServer(async (req, res) => {
     const delMatch = pathname.match(/^\/api\/tools\/(\d+)$/);
     if (req.method === 'DELETE' && delMatch) {
       const id = Number(delMatch[1]);
-      const store = await readStore();
+      const { store, sha } = await readStoreWithMeta();
       const before = store.tools.length;
       store.tools = store.tools.filter(t => Number(t.id) !== id);
 
@@ -223,7 +286,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      await writeStore(store);
+      await writeStore(store, sha);
       res.writeHead(204, { 'Access-Control-Allow-Origin': '*' });
       res.end();
       return;

@@ -1225,10 +1225,10 @@ tbody tr:hover td { background: var(--bg3); }
   <span id="toast-msg">Saved successfully</span>
 </div>
 
+<script src="./app-config.js"></script>
 <script>
-const API_BASE = '/api/tools';
+const API_BASE = window.TCTOOL_API_BASE || '/api/tools';
 const STATIC_JSON_PATH = './data/ToolConfig.json';
-const LOCAL_STORE_KEY = 'tctool-static-tools-v1';
 const REFRESH_MS = 30000;
 
 let tools = [];
@@ -1283,27 +1283,6 @@ function normalizeTool(t) {
     Totaluserclickcount: Number(t.Totaluserclickcount) || 0,
     Remark: String(t.Remark || '')
   };
-}
-
-function loadToolsFromLocalStore() {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return null;
-    return parsed.map(normalizeTool);
-  } catch (e) {
-    return null;
-  }
-}
-
-function saveToolsToLocalStore() {
-  if (!isStaticMode) return;
-  try {
-    localStorage.setItem(LOCAL_STORE_KEY, JSON.stringify(tools));
-  } catch (e) {
-    console.error('Could not save to local storage', e);
-  }
 }
 
 async function apiRequest(path, options) {
@@ -1388,8 +1367,6 @@ async function loadFromApi(silent) {
       if (!staticRes.ok) throw new Error(`HTTP ${staticRes.status}`);
       const staticData = await staticRes.json();
       tools = ((staticData && staticData.tools) || []).map(normalizeTool);
-      const localTools = loadToolsFromLocalStore();
-      if (localTools && localTools.length) tools = localTools;
       nextId = Math.max(0, ...tools.map(t => Number(t.id) || 0)) + 1;
       lastSyncTime = new Date();
       isStaticMode = true;
@@ -1596,6 +1573,10 @@ function handleBackdropClick(e) { if (e.target === document.getElementById('moda
 function clearErrors() { ['name','url','by'].forEach(k => document.getElementById('err-'+k).textContent = ''); }
 
 async function saveTool() {
+  if (isStaticMode) {
+    showToast('ℹ️', 'Backend API is required to save changes for all users.');
+    return;
+  }
   clearErrors();
   const name   = document.getElementById('f-name').value.trim();
   const desc   = document.getElementById('f-desc').value.trim();
@@ -1620,25 +1601,6 @@ async function saveTool() {
     Totaluserclickcount: editId ? (tools.find(t => t.id === editId)?.Totaluserclickcount || 0) : 0,
     Remark: remark
   };
-
-  if (isStaticMode) {
-    if (editId) {
-      const t = tools.find(x => x.id === editId);
-      if (!t) return;
-      Object.assign(t, payload);
-      showToast('✅', 'Tool updated and saved in browser');
-    } else {
-      const newTool = { id: nextId++, ...payload };
-      tools.push(newTool);
-      showToast('✅', 'Tool created and saved in browser');
-    }
-    closeModal();
-    saveToolsToLocalStore();
-    renderStats();
-    renderCards();
-    renderTable();
-    return;
-  }
 
   try {
     setLoading(true, editId ? 'Updating tool...' : 'Saving tool...');
@@ -1668,18 +1630,13 @@ async function saveTool() {
 }
 
 async function toggleActive(id) {
+  if (isStaticMode) {
+    showToast('ℹ️', 'Backend API is required to update status for all users.');
+    return;
+  }
   const t = tools.find(x => x.id === id);
   if (!t) return;
   const next = t.ToolActive ? 0 : 1;
-  if (isStaticMode) {
-    t.ToolActive = next;
-    saveToolsToLocalStore();
-    renderStats();
-    renderCards();
-    renderTable();
-    showToast(next ? '✅' : '🚫', `"${t.toolname}" ${next ? 'activated' : 'deactivated'} (saved in browser)`);
-    return;
-  }
   try {
     await apiRequest(`${API_BASE}/${id}`, {
       method: 'PUT',
@@ -1710,19 +1667,13 @@ function closeConfirm() {
 }
 
 async function confirmDelete() {
+  if (isStaticMode) {
+    showToast('ℹ️', 'Backend API is required to delete tools for all users.');
+    return;
+  }
   if (!deleteId) return;
   const id = deleteId;
   const t = tools.find(x => x.id === id);
-  if (isStaticMode) {
-    closeConfirm();
-    tools = tools.filter(x => x.id !== id);
-    saveToolsToLocalStore();
-    renderStats();
-    renderCards();
-    renderTable();
-    showToast('🗑️', `"${t.toolname}" deleted (saved in browser)`);
-    return;
-  }
   closeConfirm();
   try {
     await apiRequest(`${API_BASE}/${id}`, { method: 'DELETE' });
@@ -1738,6 +1689,7 @@ async function confirmDelete() {
 }
 
 function trackClick(id) {
+  if (isStaticMode) return;
   const t = tools.find(x => x.id === id);
   if (!t) return;
   t.Totaluserclickcount = (t.Totaluserclickcount || 0) + 1;
@@ -1748,10 +1700,6 @@ function trackClick(id) {
   }
   if (document.getElementById('pane-table').classList.contains('active')) renderTable();
   if (document.getElementById('pane-usage').classList.contains('active')) renderUsage();
-
-  if (isStaticMode) {
-    saveToolsToLocalStore();
-  }
 
   if (!isStaticMode) {
     apiRequest(`${API_BASE}/${id}/click`, { method: 'PATCH', keepalive: true }).catch(err => {
@@ -1810,18 +1758,13 @@ function renderUsage() {
 }
 
 async function resetUsage(id) {
+  if (isStaticMode) {
+    showToast('ℹ️', 'Backend API is required to reset counts for all users.');
+    return;
+  }
   const t = tools.find(x => x.id === id);
   if (!t) return;
   if (!confirm(`Reset Totaluserclickcount to 0 for "${t.toolname}"?`)) return;
-  if (isStaticMode) {
-    t.Totaluserclickcount = 0;
-    saveToolsToLocalStore();
-    renderUsage();
-    renderCards();
-    renderTable();
-    showToast('✅', 'Click count reset (saved in browser)');
-    return;
-  }
   try {
     await apiRequest(`${API_BASE}/${id}`, {
       method: 'PUT',

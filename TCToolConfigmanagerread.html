@@ -1162,8 +1162,9 @@ tbody tr:hover td { background: var(--bg3); }
   <span id="toast-msg">Saved successfully</span>
 </div>
 
+<script src="./app-config.js"></script>
 <script>
-const API_BASE = '/api/tools';
+const API_BASE = window.TCTOOL_API_BASE || '/api/tools';
 const STATIC_JSON_PATH = './data/ToolConfig.json';
 const REFRESH_MS = 30000;
 
