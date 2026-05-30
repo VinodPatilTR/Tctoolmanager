@@ -45,11 +45,13 @@
     const msal = new window.msal.PublicClientApplication(msalConfig);
 
     msal.initialize().then(async () => {
-      // Handle redirect responses (no-op when using popup, but safe).
-      try { await msal.handleRedirectPromise(); } catch (e) { console.warn('[auth] redirect handler', e); }
+      // Handle redirect result — captures account + token after AAD redirect back.
+      let redirectResult = null;
+      try { redirectResult = await msal.handleRedirectPromise(); } catch (e) { console.warn('[auth] redirect handler', e); }
+      if (redirectResult && redirectResult.account) msal.setActiveAccount(redirectResult.account);
 
       const accounts = msal.getAllAccounts();
-      if (accounts.length) msal.setActiveAccount(accounts[0]);
+      if (accounts.length && !msal.getActiveAccount()) msal.setActiveAccount(accounts[0]);
 
       window.tctoolAuth = {
         enabled: true,
@@ -62,29 +64,28 @@
             const r = await msal.acquireTokenSilent({ account, scopes: [scope] });
             return r.accessToken;
           } catch (err) {
-            console.warn('[auth] silent token failed, prompting popup', err);
-            const r = await msal.acquireTokenPopup({ account, scopes: [scope] });
-            return r.accessToken;
+            console.warn('[auth] silent token failed, trying redirect', err);
+            // Redirect to AAD to get a fresh token; page reloads after.
+            await msal.acquireTokenRedirect({ account, scopes: [scope] });
+            return null; // unreachable — page redirects
           }
         },
         signIn: async () => {
-          const r = await msal.loginPopup({ scopes: [scope], prompt: 'select_account' });
-          msal.setActiveAccount(r.account);
-          renderButton();
-          if (typeof window.manualRefresh === 'function') window.manualRefresh();
+          // Use redirect (not popup) — works in all corporate browser environments.
+          await msal.loginRedirect({ scopes: [scope], prompt: 'select_account' });
+          // Execution stops here; page navigates to AAD, then returns.
         },
         signOut: async () => {
           const account = msal.getActiveAccount();
-          await msal.logoutPopup({ account, mainWindowRedirectUri: window.location.href });
-          renderButton();
-          if (typeof window.manualRefresh === 'function') window.manualRefresh();
+          await msal.logoutRedirect({ account, postLogoutRedirectUri: window.location.href });
+          // Execution stops here; page navigates to AAD logout, then returns.
         }
       };
 
       injectSignInButton(true);
       renderButton();
 
-      // If already signed in, refresh data with bearer token.
+      // After redirect back, if signed in, reload data with bearer token.
       if (window.tctoolAuth.isSignedIn() && typeof window.manualRefresh === 'function') {
         window.manualRefresh();
       }
