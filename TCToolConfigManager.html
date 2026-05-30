@@ -1589,18 +1589,6 @@ function showApiBanner(show, detail, opts) {
   }
 }
 
-async function loadToolsFromGithubRaw() {
-  if (!GITHUB_OWNER || !GITHUB_REPO) {
-    throw new Error('GitHub owner/repo is missing in app-config.js');
-  }
-  const rawUrl = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${encodeURIComponent(GITHUB_BRANCH)}/${githubPathEncode(GITHUB_FILE_PATH)}?cb=${Date.now()}`;
-  const response = await fetch(rawUrl, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`GitHub raw HTTP ${response.status}`);
-  const parsed = await response.json();
-  if (!Array.isArray(parsed.tools)) parsed.tools = [];
-  return parsed.tools;
-}
-
 function updateLastSyncLabel() {
   const el = document.getElementById('last-sync');
   if (!el) return;
@@ -1645,19 +1633,11 @@ async function loadFromApi(silent) {
     }
   } catch (error) {
     console.error(error);
-    try {
-      const rows = await loadToolsFromGithubRaw();
-      tools = rows.map(normalizeTool);
-      nextId = Math.max(0, ...tools.map(t => Number(t.id) || 0)) + 1;
-      lastSyncTime = new Date();
-      isStaticMode = true;
-      showApiBanner(true, `Backend API offline (${error.message}). Showing read-only data from GitHub: ${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_FILE_PATH}. Writes are disabled until the backend is started.`, { title: 'Read-only mode — backend offline' });
-      if (!silent) showToast('📂', `Loaded ${tools.length} tools from GitHub (read-only)`);
-    } catch (fallbackError) {
-      console.error(fallbackError);
-      showApiBanner(true, `Could not connect to backend API: ${error.message}. GitHub fallback also failed: ${fallbackError.message}.`);
-      if (!silent) showToast('❌', `Could not load data: ${error.message}`);
-    }
+    tools = [];
+    isStaticMode = false;
+    const msg = error.message || String(error);
+    showApiBanner(true, `Cannot connect to the backend API: ${msg}. Make sure the backend is deployed and reachable, then reload.`, { title: 'Backend API not reachable' });
+    if (!silent) showToast('❌', `Could not load data: ${msg}`);
   } finally {
     if (reloadBtn) reloadBtn.classList.remove('spinning');
     setLoading(false);
