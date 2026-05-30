@@ -1,13 +1,15 @@
 /* eslint-disable no-console */
 // MSAL.js sign-in helper for TC Tool Manager.
 // Loaded by TCToolConfigManager.html and TCToolConfigmanagerread.html.
-// If TCTOOL_AAD_TENANT_ID / TCTOOL_AAD_CLIENT_ID are blank in app-config.js,
-// this script does nothing — the page works in anonymous / GitHub fallback mode.
+// The Sign in button (#signin-btn) is in the HTML. This script wires it up.
 
 (function () {
   const tenantId = window.TCTOOL_AAD_TENANT_ID || '';
   const clientId = window.TCTOOL_AAD_CLIENT_ID || '';
   const scope = window.TCTOOL_SQL_SCOPE || 'https://database.windows.net/.default';
+
+  // Default click handler — shown before MSAL loads or if not configured.
+  window.__msalBtnClick = () => alert('Authentication is loading, please try again in a moment.');
 
   // Expose a stub no-op auth so callers can always use the same API.
   window.tctoolAuth = {
@@ -21,7 +23,8 @@
 
   if (!tenantId || !clientId) {
     console.info('[auth] MSAL disabled — set TCTOOL_AAD_TENANT_ID and TCTOOL_AAD_CLIENT_ID in app-config.js to enable.');
-    injectSignInButton(false);
+    const btn = document.getElementById('signin-btn');
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; btn.title = 'Sign-in not configured'; }
     return;
   }
 
@@ -30,7 +33,11 @@
   s.src = 'https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js';
   s.async = true;
   s.onload = bootstrap;
-  s.onerror = () => console.error('[auth] Failed to load MSAL.js from CDN');
+  s.onerror = () => {
+    console.error('[auth] Failed to load MSAL.js from CDN');
+    const btn = document.getElementById('signin-btn');
+    if (btn) { btn.textContent = 'Auth unavailable'; btn.disabled = true; btn.style.opacity = '0.5'; btn.title = 'Failed to load MSAL — check network/proxy'; }
+  };
   document.head.appendChild(s);
 
   function bootstrap() {
@@ -82,29 +89,8 @@
         }
       };
 
-      injectSignInButton(true);
-      renderButton();
-
-      // After redirect back, if signed in, reload data with bearer token.
-      if (window.tctoolAuth.isSignedIn() && typeof window.manualRefresh === 'function') {
-        window.manualRefresh();
-      }
-    });
-  }
-
-  function injectSignInButton(enabled) {
-    const ready = () => {
-      const topbar = document.querySelector('.topbar > div:last-child');
-      if (!topbar) { setTimeout(ready, 50); return; }
-      if (document.getElementById('signin-btn')) return;
-      const btn = document.createElement('button');
-      btn.id = 'signin-btn';
-      btn.className = 'reload-btn';
-      btn.title = 'Sign in with Microsoft account (MFA)';
-      btn.style.cssText = 'border-color:#0f67ac;color:#0f67ac;';
-      btn.textContent = enabled ? 'Sign in' : 'Sign in (not configured)';
-      if (!enabled) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; }
-      btn.onclick = async () => {
+      // Wire up the button's click handler now that MSAL is ready.
+      window.__msalBtnClick = async () => {
         try {
           if (window.tctoolAuth.isSignedIn()) await window.tctoolAuth.signOut();
           else await window.tctoolAuth.signIn();
@@ -113,13 +99,14 @@
           alert('Sign-in failed: ' + (e && e.message ? e.message : e));
         }
       };
-      topbar.appendChild(btn);
-    };
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', ready);
-    } else {
-      ready();
-    }
+
+      renderButton();
+
+      // After redirect back, if signed in, reload data with bearer token.
+      if (window.tctoolAuth.isSignedIn() && typeof window.manualRefresh === 'function') {
+        window.manualRefresh();
+      }
+    });
   }
 
   function renderButton() {
