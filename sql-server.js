@@ -49,10 +49,14 @@ function getCredential() {
 }
 
 let cachedCredential = null;
+let tokenExpiresAt = 0;
+const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000; // refresh when < 5 min left
+
 async function getAccessToken() {
   if (!cachedCredential) cachedCredential = getCredential();
   const token = await cachedCredential.getToken('https://database.windows.net/.default');
   if (!token || !token.token) throw new Error('Failed to obtain AAD access token');
+  tokenExpiresAt = token.expiresOnTimestamp || (Date.now() + 50 * 60 * 1000);
   return token.token;
 }
 
@@ -90,16 +94,27 @@ function buildSqlConfig(accessToken) {
   };
 }
 
+let cachedPool = null;
 let poolPromise = null;
 function getPool() {
+  const usingToken = SQL_AUTH !== 'password';
+  const tokenExpired = usingToken && (Date.now() + TOKEN_REFRESH_BUFFER_MS) >= tokenExpiresAt;
+
+  if (cachedPool && !tokenExpired) return Promise.resolve(cachedPool);
+
   if (!poolPromise) {
     poolPromise = (async () => {
-      const token = SQL_AUTH === 'password' ? null : await getAccessToken();
-      return sql.connect(buildSqlConfig(token));
-    })().catch(err => {
-      poolPromise = null;
-      throw err;
-    });
+      if (cachedPool) {
+        console.log('[sql] AAD token near expiry — refreshing pool');
+        try { await cachedPool.close(); } catch (_) { /* ignore */ }
+        cachedPool = null;
+      }
+      const token = usingToken ? await getAccessToken() : null;
+      cachedPool = await sql.connect(buildSqlConfig(token));
+      return cachedPool;
+    })()
+      .catch(err => { cachedPool = null; throw err; })
+      .finally(() => { poolPromise = null; });
   }
   return poolPromise;
 }
