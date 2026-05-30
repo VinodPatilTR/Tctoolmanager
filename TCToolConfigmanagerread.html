@@ -1162,7 +1162,8 @@ tbody tr:hover td { background: var(--bg3); }
   <span id="toast-msg">Saved successfully</span>
 </div>
 
-<script src="./app-config.js?v=20260529e"></script>
+<script src="./app-config.js?v=20260530a"></script>
+<script src="./msal-auth.js?v=20260530a"></script>
 <script>
 let API_BASE = window.TCTOOL_API_BASE || '/api/tools';
 const API_CANDIDATES = Array.isArray(window.TCTOOL_API_CANDIDATES) ? window.TCTOOL_API_CANDIDATES : [];
@@ -1222,7 +1223,17 @@ async function apiRequest(path, options) {
   if (DIRECT_GITHUB_MODE) {
     return directJsonRequest(path, options);
   }
-  const response = await fetch(path, options);
+  const opts = { ...(options || {}) };
+  const headers = { ...((options && options.headers) || {}) };
+  try {
+    const token = window.tctoolAuth ? await window.tctoolAuth.getToken() : null;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+  } catch (_) { /* ignore token failure, request will get 401 if needed */ }
+  opts.headers = headers;
+  const response = await fetch(path, opts);
+  if (response.status === 401) {
+    throw new Error('Sign in required (HTTP 401)');
+  }
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
     try {
@@ -1459,6 +1470,7 @@ async function manualRefresh() {
   nextRefreshAt = Date.now() + REFRESH_MS;
   await loadFromApi(false);
 }
+window.manualRefresh = manualRefresh;
 
 const titles = { dashboard:"TaxCaddy Tool's Dashboard", table:'Admin Table', usage:'Usage Analytics' };
 const metas  = {

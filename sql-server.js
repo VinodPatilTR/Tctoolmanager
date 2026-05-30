@@ -20,9 +20,18 @@
 const http = require('http');
 const path = require('path');
 const fs = require('fs/promises');
+const crypto = require('crypto');
+const { AsyncLocalStorage } = require('async_hooks');
 const { URL } = require('url');
 const sql = require('mssql');
 const { InteractiveBrowserCredential, DefaultAzureCredential } = require('@azure/identity');
+
+// Per-request store for the signed-in user's bearer token (passthrough mode).
+const requestStorage = new AsyncLocalStorage();
+function currentRequestToken() {
+  const store = requestStorage.getStore();
+  return store && store.token ? store.token : null;
+}
 
 const PORT = Number(process.env.PORT) || 3000;
 const rootDir = __dirname;
@@ -96,7 +105,41 @@ function buildSqlConfig(accessToken) {
 
 let cachedPool = null;
 let poolPromise = null;
+
+// Passthrough mode: cache one pool per user token, keyed by sha256(token).
+const userPools = new Map(); // hash -> { pool, exp }
+function decodeJwtExpMs(token) {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString('utf8'));
+    if (payload && payload.exp) return payload.exp * 1000;
+  } catch (_) { /* ignore */ }
+  return Date.now() + 50 * 60 * 1000;
+}
+async function getUserPool(token) {
+  const key = crypto.createHash('sha256').update(token).digest('hex');
+  const cached = userPools.get(key);
+  if (cached && cached.exp > Date.now() + TOKEN_REFRESH_BUFFER_MS) return cached.pool;
+  if (cached) {
+    try { await cached.pool.close(); } catch (_) { /* ignore */ }
+    userPools.delete(key);
+  }
+  const pool = new sql.ConnectionPool(buildSqlConfig(token));
+  await pool.connect();
+  userPools.set(key, { pool, exp: decodeJwtExpMs(token) });
+  return pool;
+}
+
 function getPool() {
+  if (SQL_AUTH === 'passthrough') {
+    const token = currentRequestToken();
+    if (!token) {
+      const err = new Error('AAD bearer token is required. Sign in and retry.');
+      err.statusCode = 401;
+      return Promise.reject(err);
+    }
+    return getUserPool(token);
+  }
+
   const usingToken = SQL_AUTH !== 'password';
   const tokenExpired = usingToken && (Date.now() + TOKEN_REFRESH_BUFFER_MS) >= tokenExpiresAt;
 
@@ -323,15 +366,23 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '600'
     });
     res.end();
     return;
   }
 
+  // Stash the per-request bearer token so getPool() can use it in passthrough mode.
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'] || '';
+  const bearerMatch = String(authHeader).match(/^Bearer\s+(.+)$/i);
+  const requestContext = { token: bearerMatch ? bearerMatch[1].trim() : null };
+
+  return requestStorage.run(requestContext, async () => {
   try {
     if (req.method === 'GET' && pathname === '/api/health') {
-      await getPool();
+      // Health endpoint does not require a user token; in passthrough mode we simply report mode.
+      if (SQL_AUTH !== 'passthrough') await getPool();
       sendJson(res, 200, { ok: true, storage: 'azure-sql', server: SQL_SERVER, database: SQL_DATABASE, auth: SQL_AUTH });
       return;
     }
@@ -387,8 +438,11 @@ const server = http.createServer(async (req, res) => {
     await serveStatic(req, res, pathname);
   } catch (error) {
     console.error('[error]', error);
-    sendJson(res, 500, { error: 'Internal server error', detail: error.message });
+    const status = error.statusCode || 500;
+    const message = status === 401 ? 'Authentication required' : 'Internal server error';
+    sendJson(res, status, { error: message, detail: error.message });
   }
+  });
 });
 
 server.listen(PORT, () => {

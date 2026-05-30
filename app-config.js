@@ -22,3 +22,12 @@ window.TCTOOL_GITHUB_FILE_PATH = 'data/ToolConfig.json';
 // Required for create/update/delete/click writes.
 // Leave blank in git. Set your token manually for production use.
 window.TCTOOL_GITHUB_TOKEN = window.TCTOOL_GITHUB_TOKEN || '';
+
+// ─── AAD sign-in (MSAL.js) for per-user MFA login from the page ───
+// Fill these in after creating the App Registration (see deployment guide).
+// Tenant ID GUID, or 'organizations' for any work/school account.
+window.TCTOOL_AAD_TENANT_ID = '';
+// Application (client) ID from your single-page App Registration.
+window.TCTOOL_AAD_CLIENT_ID = '';
+// Scope to request — Azure SQL needs this exact resource.
+window.TCTOOL_SQL_SCOPE = 'https://database.windows.net/.default';
