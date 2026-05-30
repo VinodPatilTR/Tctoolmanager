@@ -1617,6 +1617,18 @@ function startAutoRefresh() {
 
 async function loadFromApi(silent) {
   if (!silent) setLoading(true, LOCAL_MODE ? 'Loading local data...' : 'Loading from API...');
+  // If auth is configured but user is not signed in yet, prompt sign-in instead of hitting API.
+  const authReady = window.tctoolAuth && window.tctoolAuth.enabled;
+  const signedIn  = authReady && window.tctoolAuth.isSignedIn();
+  if (authReady && !signedIn) {
+    showApiBanner(true, 'Click the \u201cSign in\u201d button above to authenticate with your Microsoft account (MFA), then data will load automatically.', { title: 'Sign in required' });
+    const reloadBtn2 = document.getElementById('reload-btn');
+    if (reloadBtn2) reloadBtn2.classList.remove('spinning');
+    setLoading(false);
+    renderStats(); renderCards(); renderTable(); updateLastSyncLabel();
+    return;
+  }
+
   const reloadBtn = document.getElementById('reload-btn');
   if (reloadBtn) reloadBtn.classList.add('spinning');
 
@@ -1630,15 +1642,20 @@ async function loadFromApi(silent) {
     showApiBanner(false);
     if (!silent) {
       const modeLabel = LOCAL_MODE ? 'local mode' : 'api mode';
-      showToast('📂', `Loaded ${tools.length} tools (${modeLabel})`);
+      showToast('\ud83d\udcc2', `Loaded ${tools.length} tools (${modeLabel})`);
     }
   } catch (error) {
     console.error(error);
     tools = [];
     isStaticMode = false;
     const msg = error.message || String(error);
-    showApiBanner(true, `Cannot connect to the backend API: ${msg}. Make sure the backend is deployed and reachable, then reload.`, { title: 'Backend API not reachable' });
-    if (!silent) showToast('❌', `Could not load data: ${msg}`);
+    const is401 = msg.includes('401') || msg.toLowerCase().includes('sign in');
+    if (is401) {
+      showApiBanner(true, 'Click the \u201cSign in\u201d button above to authenticate with your Microsoft account (MFA), then data will load automatically.', { title: 'Sign in required' });
+    } else {
+      showApiBanner(true, `Cannot connect to the backend API: ${msg}. Make sure the backend is deployed and reachable, then reload.`, { title: 'Backend API not reachable' });
+    }
+    if (!silent) showToast('\u274c', `Could not load data: ${msg}`);
   } finally {
     if (reloadBtn) reloadBtn.classList.remove('spinning');
     setLoading(false);
@@ -1647,7 +1664,7 @@ async function loadFromApi(silent) {
     renderTable();
     updateLastSyncLabel();
   }
-}
+
 
 async function manualRefresh() {
   nextRefreshAt = Date.now() + REFRESH_MS;
