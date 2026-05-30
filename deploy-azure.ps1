@@ -10,9 +10,9 @@ param(
   [string]$ResourceGroup  = "rg-tctool",
   [string]$Location       = "eastus2",
   [string]$PlanName       = "asp-tctool",
-  [string]$AppName        = "tctool-api-vinod",   # MUST be globally unique → change if taken
+  [string]$AppName        = "tctool-manager-api",   # MUST be globally unique → change if taken
   [string]$SqlServer      = "eu2-dev-taxcaddy-sqlsrv.database.windows.net",
-  [string]$SqlDatabase    = "TaxCaddyDev"         # ← set to your real DB name
+  [string]$SqlDatabase    = "eu2-dev-Log-sql-db"
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,6 +41,7 @@ az webapp config appsettings set -g $ResourceGroup -n $AppName --settings `
   SQL_SERVER=$SqlServer `
   SQL_DATABASE=$SqlDatabase `
   SQL_AUTH=passthrough `
+  AAD_TENANT_ID="e205bfab-7c3a-4369-86f3-030001469257" `
   WEBSITE_NODE_DEFAULT_VERSION="~20" `
   SCM_DO_BUILD_DURING_DEPLOYMENT=true | Out-Null
 
