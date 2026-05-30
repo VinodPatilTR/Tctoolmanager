@@ -33,7 +33,8 @@ function currentRequestToken() {
   return store && store.token ? store.token : null;
 }
 
-const PORT = Number(process.env.PORT) || 3000;
+// iisnode passes a named-pipe path in PORT (not a number), so don't coerce to Number.
+const PORT = process.env.PORT || 3000;
 const rootDir = __dirname;
 
 const SQL_SERVER = process.env.SQL_SERVER || 'eu2-dev-taxcaddy-sqlsrv.database.windows.net';
